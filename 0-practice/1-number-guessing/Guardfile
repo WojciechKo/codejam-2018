@@ -1,0 +1,3 @@
+guard :shell do
+  watch(/.*.rb/) {|m| `python testing_tool.py ruby #{m[0]}` }
+end
