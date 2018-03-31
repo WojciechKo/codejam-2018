@@ -1,0 +1,5 @@
+notification :terminal_notifier
+
+guard :rspec, cmd: "bundle exec rspec" do
+  watch(/solution.rb/) { 'spec' }
+end
