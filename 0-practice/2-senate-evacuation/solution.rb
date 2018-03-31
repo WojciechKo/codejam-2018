@@ -9,20 +9,27 @@ LOGGER.level = Logger::DEBUG
 class Evacuation
   ALPHABET = ('A' .. 'Z').to_a
 
-  def initialize(parties_members)
-    @parties_members = parties_members
-  end
+  def steps(parties_members)
+    first, *rest = parties_members.map.with_index do |count, index|
+      (ALPHABET[index] * count).split('')
+    end.sort_by(&:size).reverse
 
-  def steps
-    letter_from_index = -> index { ALPHABET[index - 1] }
+    LOGGER.debug("First: " + first.inspect)
+    LOGGER.debug("Rest: " + rest.inspect)
 
-    [[1, 1], [1, 1]].map do |step|
-      step.map(&letter_from_index).join
+    order = first.zip(*rest).flatten.compact
+    LOGGER.debug("Order: " + order.inspect)
+
+    [].tap do |result|
+      until order.empty?
+        if order.size == 3
+          result << order.pop(1).join
+        else
+          result << order.pop(2).join
+        end
+      end
     end
   end
-
-  private
-  attr_reader :parties_members
 end
 
 class Interface
@@ -38,38 +45,37 @@ class Interface
 
   def read_test_cases
     gets.to_i.tap do |test_cases|
-      LOGGER.debug("<= Test cases: #{test_cases}")
-
-      @test_cases = test_cases
+      LOGGER.debug("#" * 60)
+      LOGGER.debug("<= Total test cases: #{test_cases}")
     end
   end
 
   def read_number_of_parties
     gets.to_i.tap do |parties|
-      LOGGER.debug("#" * 60)
+      LOGGER.debug("." * 20)
       LOGGER.debug("<= Number of parties:  #{parties}")
     end
   end
 
   def read_parties_members
-    gets.split.map(&:to_i).tap do |*members|
-      LOGGER.debug("<= Parties members:  #{members}")
+    gets.split.map(&:to_i).tap do |members|
+      LOGGER.debug("<= Parties members:  #{members.inspect}")
 
-      @evacuation = Evacuation.new(members)
+      @parties_members = members
       @test_case = (test_case || 0) + 1
     end
   end
 
   def write_evacuation_plan
-    steps = evacuation.steps.join(" ")
+    steps = Evacuation.new.steps(parties_members).join(" ")
     log = "Case ##{test_case}: #{steps}"
-
     puts log
-    LOGGER.debug(log)
+
+    LOGGER.debug("=> " + log)
   end
 
   private
-  attr_reader :evacuation, :test_case
+  attr_reader :parties_members, :test_case
 end
 
 if __FILE__ == $0
