@@ -6,7 +6,7 @@ log_file = File.open('log.log', 'a')
 LOGGER = Logger.new(log_file)
 LOGGER.level = Logger::DEBUG
 
-class Guessing
+class Guesser
   def initialize(min, max)
     @range = (min .. max)
   end
@@ -29,8 +29,6 @@ end
 
 class Interface
   def read_test_cases
-    @guessings = []
-
     gets.to_i.tap do |test_cases|
       LOGGER.debug("<= Test cases: #{test_cases}")
     end
@@ -41,7 +39,7 @@ class Interface
       LOGGER.debug("#" * 60)
       LOGGER.debug("<= New guessing, range:  (#{lower}, #{upper}]")
 
-      @guessings.push(Guessing.new(lower + 1, upper))
+      @guesser = Guesser.new(lower + 1, upper)
     end
   end
 
@@ -52,7 +50,7 @@ class Interface
   end
 
   def make_a_guess
-    @guessings.last.make_a_guess.tap do |guess|
+    guesser.make_a_guess.tap do |guess|
       LOGGER.debug("=> Guess:  #{guess}")
 
       puts guess
@@ -67,12 +65,15 @@ class Interface
   end
 
   def guess_too_big(guess)
-    @guessings.last.guess_too_big(guess)
+    guesser.guess_too_big(guess)
   end
 
   def guess_too_small(guess)
-    @guessings.last.guess_too_small(guess)
+    guesser.guess_too_small(guess)
   end
+
+  private
+  attr_reader :guesser
 end
 
 def start_guessing
