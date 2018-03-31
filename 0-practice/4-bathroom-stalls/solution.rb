@@ -6,65 +6,94 @@ log_file = File.open('log.log', 'a')
 LOGGER = Logger.new(log_file)
 LOGGER.level = Logger::WARN
 
-class StallPicker
-  Stall = Struct.new(:occupied, :index, :left, :right)
+class Stall < Struct.new(:occupied, :index, :left, :right)
+  def initialize(*args)
+    super
+    @dirty = true
+  end
 
+  def left=(left)
+    super
+    @dirty = true
+  end
+
+  def right=(right)
+    super
+    @dirty = true
+  end
+
+  def occupied=(occupied)
+    super
+    @dirty = true
+  end
+
+  def <=>(other_stall)
+    value <=> other_stall.value
+  end
+
+  def value
+    if @dirty
+      @dirty = false
+      @value = calculate_value
+    else
+      @value
+    end
+  end
+
+  def minmax
+    [left, right].minmax
+  end
+
+  private
+
+  def calculate_value
+    return [0, 0] if occupied
+
+    minmax + [-index]
+  end
+end
+
+class StallPicker
   def initialize(stalls_count)
-    @models = Array.new(stalls_count) do |number|
+    @stalls = Array.new(stalls_count) do |number|
       Stall.new(false, number, number, stalls_count - number - 1)
     end
-    LOGGER.debug("## Init stalls: #{@models}")
+    @available_stalls = @stalls.clone
+    LOGGER.debug("## Init stalls: #{@stalls}")
+  end
+
+  def pick_multiple(n)
+    n.times.reduce(nil) { pick }
   end
 
   def pick
-    pick_next.tap do |selected_stall|
-      LOGGER.debug("#### Selected stall: #{selected_stall}")
+    @available_stalls.max.tap do |selected_stall|
+      LOGGER.debug("#### Selected: #{selected_stall}")
       make_stall_occupied!(selected_stall.index)
     end
   end
 
   private
-  attr_reader :models
-
-  def pick_next
-    @models.reject do |stall|
-      stall.occupied
-    end.min_by do |stall|
-      min, max = [stall.left, stall.right].minmax
-      [-min, -max, stall.index]
-    end
-  end
+  attr_reader :stalls, :available_stalls
 
   def make_stall_occupied!(selected_stall)
-    @models[selected_stall].occupied = true
+    @stalls[selected_stall].occupied = true
 
-    @models.take(selected_stall).reverse.each_with_index do |stall, index|
+    @stalls.take(selected_stall).reverse.each_with_index do |stall, index|
       stall.right = index
       LOGGER.debug("#### Update on left side: #{stall}")
       break if stall.occupied
     end
 
-    @models.drop(selected_stall + 1).each_with_index do |stall, index|
+    @stalls.drop(selected_stall + 1).each_with_index do |stall, index|
       stall.left = index
       LOGGER.debug("#### Update on right side: #{stall}")
       break if stall.occupied
     end
 
-    LOGGER.debug("## After update: #{@models}")
-  end
-end
+    @available_stalls.delete_if { |stall| stall.index == selected_stall }
 
-class BathroomStalls
-  def calculate(stalls, people)
-    picker = StallPicker.new(stalls)
-
-    stall = people.times.reduce(nil) do
-      picker.pick.tap do |stall|
-        LOGGER.debug("# Left: #{stall.left}, right: #{stall.right} stall to take: #{stall.index}")
-      end
-    end
-
-    [stall.left, stall.right].minmax.reverse
+    LOGGER.debug("## After update: #{@stalls}")
   end
 end
 
@@ -76,8 +105,9 @@ class Interface
         LOGGER.debug("Stalls : #{stalls}")
         LOGGER.debug("People : #{people}")
 
-        min, max = BathroomStalls.new.calculate(stalls, people)
-        output_log = "Case ##{test_case + 1}: #{min} #{max}"
+        stall = StallPicker.new(stalls).pick_multiple(people)
+        min, max = stall.minmax
+        output_log = "Case ##{test_case + 1}: #{max} #{min}"
         puts output_log
         LOGGER.debug(output_log)
       end
