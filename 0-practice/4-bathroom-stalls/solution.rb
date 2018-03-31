@@ -4,87 +4,67 @@ require 'logger'
 
 log_file = File.open('log.log', 'a')
 LOGGER = Logger.new(log_file)
-LOGGER.level = Logger::INFO
+LOGGER.level = Logger::WARN
 
 class StallPicker
-  def pick(stalls)
-    @stalls = [true, *stalls, true]
+  Stall = Struct.new(:occupied, :index, :left, :right)
 
-    LOGGER.debug("## Stalls: #{stalls.inspect}")
+  def initialize(stalls_count)
+    @models = Array.new(stalls_count) do |number|
+      Stall.new(false, number, number, stalls_count - number - 1)
+    end
+    LOGGER.debug("## Init stalls: #{@models}")
+  end
 
-    stalls.map.with_index do |element, index|
-      LOGGER.debug("### Element index: #{index}")
-      if element
-        LOGGER.debug("### Occupied")
-        next
-      end
-
-      left_space = left_space(index)
-      right_space = right_space(index)
-
-      LOGGER.debug("### Left side: #{left_space}, right side: #{right_space}")
-
-      min, max = [left_space, right_space].minmax
-
-      element ? nil : [min, max, index]
-    end.compact.sort_by do |min, max, index|
-      LOGGER.debug("### Min: #{min}, Max: #{max}")
-      [-min, -max, index]
-    end.first.tap do |result|
-      LOGGER.debug("#### Result: #{result}")
+  def pick
+    pick_next.tap do |selected_stall|
+      LOGGER.debug("#### Selected stall: #{selected_stall}")
+      make_stall_occupied!(selected_stall.index)
     end
   end
 
   private
+  attr_reader :models
 
-  def left_space(index)
-    #TODO take(index)
-    space = @stalls[0 .. index].reverse
-    LOGGER.debug("#### Left side : #{space}")
-    space.index(true)
+  def pick_next
+    @models.reject do |stall|
+      stall.occupied
+    end.min_by do |stall|
+      min, max = [stall.left, stall.right].minmax
+      [-min, -max, stall.index]
+    end
   end
 
-  def right_space(index)
-    space = @stalls.drop(index + 2)
-    LOGGER.debug("#### Right side : #{space}")
-    space.index(true)
+  def make_stall_occupied!(selected_stall)
+    @models[selected_stall].occupied = true
+
+    @models.take(selected_stall).reverse.each_with_index do |stall, index|
+      stall.right = index
+      LOGGER.debug("#### Update on left side: #{stall}")
+      break if stall.occupied
+    end
+
+    @models.drop(selected_stall + 1).each_with_index do |stall, index|
+      stall.left = index
+      LOGGER.debug("#### Update on right side: #{stall}")
+      break if stall.occupied
+    end
+
+    LOGGER.debug("## After update: #{@models}")
   end
 end
 
 class BathroomStalls
-  Stall = Struct.new(:index, :occupied, :left, :right)
+  def calculate(stalls, people)
+    picker = StallPicker.new(stalls)
 
-  def calculate(n, k)
-    init_stalls(n)
-
-    k.times.map do |person|
-      process_entrance(person)
+    stall = people.times.reduce(nil) do
+      picker.pick.tap do |stall|
+        LOGGER.debug("# Left: #{stall.left}, right: #{stall.right} stall to take: #{stall.index}")
+      end
     end
 
-    output
-  end
-
-  private
-  attr_reader :stalls
-
-  def init_stalls(stales_count)
-    @stalls = Array.new(stales_count) { false}
-  end
-
-  def process_entrance(person)
-    @min, @max, stall = StallPicker.new.pick(stalls)
-    LOGGER.debug("# Min: #{@min}, max: #{@max} stall to take: #{stall}")
-    occupy_stall(stall)
-    LOGGER.info("Stalls after person #{person + 1}")
-    LOGGER.info(stalls.inspect)
-  end
-
-  def occupy_stall(stall)
-    stalls[stall] = true
-  end
-
-  def output
-    [@max, @min]
+    [stall.left, stall.right].minmax.reverse
   end
 end
 
@@ -96,8 +76,8 @@ class Interface
         LOGGER.debug("Stalls : #{stalls}")
         LOGGER.debug("People : #{people}")
 
-        output = BathroomStalls.new.calculate(stalls, people)
-        output_log = "Case ##{test_case + 1}: #{output[0]} #{output[1]}"
+        min, max = BathroomStalls.new.calculate(stalls, people)
+        output_log = "Case ##{test_case + 1}: #{min} #{max}"
         puts output_log
         LOGGER.debug(output_log)
       end

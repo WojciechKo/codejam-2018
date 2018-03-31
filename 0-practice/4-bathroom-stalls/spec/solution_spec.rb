@@ -1,14 +1,6 @@
 require 'stringio'
 require_relative '../solution'
 
-RSpec.describe StallPicker do
-  subject do
-    expect do
-      StallPicker.new.pick(stalls)
-    end.to output(result).to_stdout
-  end
-end
-
 RSpec.describe 'solution' do
   subject do
     expect do
