@@ -17,17 +17,12 @@ class StallPicker
   end
 
   def pick
-    biggest_space = @spaces.max
-    biggest_index = @spaces.index(biggest_space)
-    biggest_space = @spaces.delete_at(biggest_index)
-
+    biggest_space = @spaces.pop
     half = biggest_space / 2
     div_rest = biggest_space % 2
-    left = half + div_rest - 1
-    right = half
-    @spaces << left unless left == 0
-    @spaces << right unless right == 0
-    [left, right]
+    min = half != 0 && half + div_rest - 1 || 0
+    @spaces.unshift(min, half)
+    [min, half]
   end
 end
 
